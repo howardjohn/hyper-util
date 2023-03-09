@@ -14,6 +14,7 @@ use std::time::Duration;
 use futures_util::future::{self, Either, FutureExt, TryFutureExt};
 use http::uri::Scheme;
 use hyper::header::{HeaderValue, HOST};
+use hyper::rt::Timer;
 use hyper::{body::Body, Method, Request, Response, Uri, Version};
 use tracing::{debug, trace, warn};
 
@@ -1345,6 +1346,22 @@ impl Builder {
     #[cfg_attr(docsrs, doc(cfg(feature = "http2")))]
     pub fn http2_max_concurrent_reset_streams(&mut self, max: usize) -> &mut Self {
         self.h2_builder.max_concurrent_reset_streams(max);
+        self
+    }
+
+    /// Provide a timer to execute background HTTP2 tasks
+    ///
+    /// See the documentation of [`h2::client::Builder::timer`] for more
+    /// details.
+    ///
+    /// [`h2::client::Builder::timer`]: https://docs.rs/h2/client/struct.Builder.html#method.timer
+    #[cfg(feature = "http2")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "http2")))]
+    pub fn http2_timer<M>(&mut self, timer: M) -> &mut Self
+    where
+        M: Timer + Send + Sync + 'static,
+    {
+        self.h2_builder.timer(timer);
         self
     }
 
