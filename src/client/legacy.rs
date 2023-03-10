@@ -1359,6 +1359,7 @@ impl Builder {
     where
         M: Timer + Send + Sync + 'static,
     {
+        #[cfg(feature = "http2")]
         self.h2_builder.timer(timer);
         // TODO(https://github.com/hyperium/hyper/issues/3167) set for pool as well
         self
