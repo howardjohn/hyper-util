@@ -1355,13 +1355,12 @@ impl Builder {
     /// details.
     ///
     /// [`h2::client::Builder::timer`]: https://docs.rs/h2/client/struct.Builder.html#method.timer
-    #[cfg(feature = "http2")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "http2")))]
-    pub fn http2_timer<M>(&mut self, timer: M) -> &mut Self
+    pub fn timer<M>(&mut self, timer: M) -> &mut Self
     where
         M: Timer + Send + Sync + 'static,
     {
         self.h2_builder.timer(timer);
+        // TODO(https://github.com/hyperium/hyper/issues/3167) set for pool as well
         self
     }
 
