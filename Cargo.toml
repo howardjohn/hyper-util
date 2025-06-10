@@ -1,5 +1,5 @@
 [package]
-name = "hyper-util"
+name = "hyper-util-fork"
 version = "0.1.14"
 description = "hyper utilities"
 readme = "README.md"
