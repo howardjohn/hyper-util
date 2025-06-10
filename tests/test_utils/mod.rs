@@ -48,17 +48,17 @@ impl DebugConnector {
     }
 }
 
-impl tower_service::Service<Uri> for DebugConnector {
+impl tower_service::Service<http::request::Parts> for DebugConnector {
     type Response = DebugStream;
-    type Error = <HttpConnector as tower_service::Service<Uri>>::Error;
+    type Error = <HttpConnector as tower_service::Service<http::request::Parts>>::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // don't forget to check inner service is ready :)
-        tower_service::Service::<Uri>::poll_ready(&mut self.http, cx)
+        tower_service::Service::<http::request::Parts>::poll_ready(&mut self.http, cx)
     }
 
-    fn call(&mut self, dst: Uri) -> Self::Future {
+    fn call(&mut self, dst: http::request::Parts) -> Self::Future {
         self.connects.fetch_add(1, Ordering::SeqCst);
         let closes = self.closes.clone();
         let is_proxy = self.is_proxy;

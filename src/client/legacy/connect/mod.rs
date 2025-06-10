@@ -80,8 +80,6 @@ pub mod dns;
 #[cfg(feature = "tokio")]
 mod http;
 
-pub mod proxy;
-
 pub(crate) mod capture;
 pub use capture::{capture_connection, CaptureConnection};
 
@@ -306,7 +304,7 @@ pub(super) mod sealed {
 
     use ::http::Uri;
     use hyper::rt::{Read, Write};
-
+    use hyper::service::service_fn;
     use super::Connection;
 
     /// Connect to a destination, returning an IO transport.
@@ -325,7 +323,7 @@ pub(super) mod sealed {
         #[doc(hidden)]
         type _Svc: ConnectSvc;
         #[doc(hidden)]
-        fn connect(self, internal_only: Internal, dst: Uri) -> <Self::_Svc as ConnectSvc>::Future;
+        fn connect(self, internal_only: Internal, dst: http::request::Parts) -> <Self::_Svc as ConnectSvc>::Future;
     }
 
     pub trait ConnectSvc {
@@ -333,42 +331,42 @@ pub(super) mod sealed {
         type Error: Into<Box<dyn StdError + Send + Sync>>;
         type Future: Future<Output = Result<Self::Connection, Self::Error>> + Unpin + Send + 'static;
 
-        fn connect(self, internal_only: Internal, dst: Uri) -> Self::Future;
+        fn connect(self, internal_only: Internal, dst: http::request::Parts) -> Self::Future;
     }
 
     impl<S, T> Connect for S
     where
-        S: tower_service::Service<Uri, Response = T> + Send + 'static,
+        S: tower_service::Service<http::request::Parts, Response = T> + Send + 'static,
         S::Error: Into<Box<dyn StdError + Send + Sync>>,
         S::Future: Unpin + Send,
         T: Read + Write + Connection + Unpin + Send + 'static,
     {
         type _Svc = S;
 
-        fn connect(self, _: Internal, dst: Uri) -> crate::service::Oneshot<S, Uri> {
+        fn connect(self, _: Internal, dst: http::request::Parts) -> crate::service::Oneshot<S, http::request::Parts> {
             crate::service::Oneshot::new(self, dst)
         }
     }
 
     impl<S, T> ConnectSvc for S
     where
-        S: tower_service::Service<Uri, Response = T> + Send + 'static,
+        S: tower_service::Service<http::request::Parts, Response = T> + Send + 'static,
         S::Error: Into<Box<dyn StdError + Send + Sync>>,
         S::Future: Unpin + Send,
         T: Read + Write + Connection + Unpin + Send + 'static,
     {
         type Connection = T;
         type Error = S::Error;
-        type Future = crate::service::Oneshot<S, Uri>;
+        type Future = crate::service::Oneshot<S, http::request::Parts>;
 
-        fn connect(self, _: Internal, dst: Uri) -> Self::Future {
+        fn connect(self, _: Internal, dst: http::request::Parts) -> Self::Future {
             crate::service::Oneshot::new(self, dst)
         }
     }
 
     impl<S, T> Sealed for S
     where
-        S: tower_service::Service<Uri, Response = T> + Send,
+        S: tower_service::Service<http::request::Parts, Response = T> + Send,
         S::Error: Into<Box<dyn StdError + Send + Sync>>,
         S::Future: Unpin + Send,
         T: Read + Write + Connection + Unpin + Send + 'static,

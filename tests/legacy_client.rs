@@ -1251,7 +1251,7 @@ impl MockConnector {
 
 // Implement tower_service::Service for MockConnector to create MockConnection instances.
 // Takes a hyper::Uri and returns a future resolving to a MockConnection.
-impl tower_service::Service<hyper::Uri> for MockConnector {
+impl tower_service::Service<http::request::Parts> for MockConnector {
     type Response = crate::MockConnection;
     type Error = std::io::Error;
     type Future = std::pin::Pin<
@@ -1272,7 +1272,7 @@ impl tower_service::Service<hyper::Uri> for MockConnector {
 
     // Creates a new MockConnection for the given URI.
     // Configures the connection based on io_builder and conn_error.
-    fn call(&mut self, _req: hyper::Uri) -> Self::Future {
+    fn call(&mut self, _req: http::request::Parts) -> Self::Future {
         // Clone the IoBuilder to create a fresh mock I/O object.
         let mut io_builder = self.io_builder.clone();
         // Clone the optional connection error for this call.

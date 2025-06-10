@@ -455,7 +455,7 @@ impl<R: fmt::Debug> fmt::Debug for HttpConnector<R> {
     }
 }
 
-impl<R> tower_service::Service<Uri> for HttpConnector<R>
+impl<R> tower_service::Service<http::request::Parts> for HttpConnector<R>
 where
     R: Resolve + Clone + Send + Sync + 'static,
     R::Future: Send,
@@ -469,10 +469,10 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, dst: Uri) -> Self::Future {
+    fn call(&mut self, dst: http::request::Parts) -> Self::Future {
         let mut self_ = self.clone();
         HttpConnecting {
-            fut: Box::pin(async move { self_.call_async(dst).await }),
+            fut: Box::pin(async move { self_.call_async(dst.uri).await }),
             _marker: PhantomData,
         }
     }
@@ -1034,6 +1034,7 @@ mod tests {
     where
         C: Connect,
     {
+        let (dst, _) = http::request::Builder::new().uri(dst).method(Method::GET).body(()).unwrap().into_parts();
         connector.connect(super::super::sealed::Internal, dst).await
     }
 
@@ -1396,6 +1397,7 @@ mod tests {
     }
 
     use std::time::Duration;
+    use http::Method;
 
     #[test]
     fn no_tcp_keepalive_config() {

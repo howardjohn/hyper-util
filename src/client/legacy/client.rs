@@ -266,16 +266,18 @@ where
 
     async fn try_send_request(
         &self,
-        mut req: Request<B>,
+        req: Request<B>,
         pool_key: PK,
     ) -> Result<Response<hyper::body::Incoming>, TrySendError<B>> {
         let uri = req.uri().clone();
+        let (parts, body) = req.into_parts();
         let mut pooled = self
-            .connection_for(uri, pool_key)
+            .connection_for(parts.clone(), pool_key)
             .await
             // `connection_for` already retries checkout errors, so if
             // it returns an error, there's not much else to retry
             .map_err(TrySendError::Nope)?;
+        let mut req = Request::from_parts(parts, body);
 
         if let Some(conn) = req.extensions_mut().get_mut::<CaptureConnectionExtension>() {
             conn.set(&pooled.conn_info);
@@ -374,12 +376,12 @@ where
 
     async fn connection_for(
         &self,
-        uri: Uri,
+        dst: http::request::Parts,
         pool_key: PK,
     ) -> Result<pool::Pooled<PoolClient<B>, PK>, Error> {
         loop {
             let pk: PK = pool_key.clone();
-            match self.one_connection_for(uri.clone(), pk).await {
+            match self.one_connection_for(dst.clone(), pk).await {
                 Ok(pooled) => return Ok(pooled),
                 Err(ClientConnectError::Normal(err)) => return Err(err),
                 Err(ClientConnectError::CheckoutIsClosed(reason)) => {
@@ -399,13 +401,13 @@ where
 
     async fn one_connection_for(
         &self,
-        uri: Uri,
+        dst: http::request::Parts,
         pool_key: PK,
     ) -> Result<pool::Pooled<PoolClient<B>, PK>, ClientConnectError> {
         // Return a single connection if pooling is not enabled
         if !self.pool.is_enabled() {
             return self
-                .connect_to(uri, pool_key)
+                .connect_to(dst, pool_key)
                 .await
                 .map_err(ClientConnectError::Normal);
         }
@@ -424,7 +426,7 @@ where
         //   connection future is spawned into the runtime to complete,
         //   and then be inserted into the pool as an idle connection.
         let checkout = self.pool.checkout(pool_key.clone());
-        let connect = self.connect_to(uri, pool_key);
+        let connect = self.connect_to(dst, pool_key);
         let is_ver_h2 = self.config.ver == Ver::Http2;
 
         // The order of the `select` is depended on below...
@@ -493,7 +495,7 @@ where
     #[cfg(any(feature = "http1", feature = "http2"))]
     fn connect_to(
         &self,
-        dst: Uri,
+        dst: http::request::Parts,
         pool_key: PK,
     ) -> impl Lazy<Output = Result<pool::Pooled<PoolClient<B>, PK>, Error>> + Send + Unpin {
         let executor = self.exec.clone();
